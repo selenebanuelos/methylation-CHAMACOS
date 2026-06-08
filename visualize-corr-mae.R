@@ -4,6 +4,7 @@
 ### error between DNAm age and chronological age
 
 # setup
+library(readstata13) # work with STATA DTA files
 library(dplyr)
 library(tidyr)
 library(purrr)
@@ -83,7 +84,7 @@ long_mae <- ages_long %>%
 # data visualization
 ################################################################################
 # barplots to visualize correlation
-cor %>%
+cor_plot <- cor %>%
   ggplot(aes(x = clock,
              y = corr, 
              fill = clock)) +
@@ -102,8 +103,25 @@ cor %>%
         strip.background = element_rect(fill = 'darkgrey'),
         legend.position = 'none')
 
+long_cor_plot <- long_cor %>%
+  ggplot(aes(x = clock,
+             y = corr, 
+             fill = clock)) +
+  # create bar plot
+  geom_bar(stat = "Identity") +
+  # show Pearson correlation coefficient  above each bar
+  geom_text(aes(label = corr), position = position_dodge(width = 0.9), vjust = -0.25) +
+  # formatting
+  labs(title = 'Longitudinal correlation between epigenetic and chronological age',
+       x = 'Clock',
+       y = 'Pearson Correlation Coefficient (r)') +
+  theme_light() +
+  theme(strip.text = element_text(face = 'bold', size = 12),
+        strip.background = element_rect(fill = 'darkgrey'),
+        legend.position = 'none')
+
 # barplots to visualize median absolute error
-mae %>%
+mae_plot <- mae %>%
   ggplot(aes(x = clock,
              y = mae, 
              fill = clock)) +
@@ -121,3 +139,23 @@ mae %>%
   theme(strip.text = element_text(face = 'bold', size = 12),
         strip.background = element_rect(fill = 'darkgrey'),
         legend.position = 'none')
+
+long_mae_plot <- long_mae %>%
+  ggplot(aes(x = clock,
+             y = mae, 
+             fill = clock)) +
+  # create bar plot
+  geom_bar(stat = "Identity") +
+  # show MAE above each bar
+  geom_text(aes(label = mae), position = position_dodge(width = 0.9), vjust = -0.25) +
+  # formatting
+  labs(title = 'Longitudinal median absolute error between epigenetic and chronological age',
+       x = 'Clock',
+       y = 'Median absolute error') +
+  theme_light() +
+  theme(strip.text = element_text(face = 'bold', size = 12),
+        strip.background = element_rect(fill = 'darkgrey'),
+        legend.position = 'none')
+
+# output 
+################################################################################

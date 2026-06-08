@@ -23,7 +23,7 @@ asthma <- read.csv('data-raw/chamacos.asthma.lca3.csv', sep = ';') %>% select(-X
 
 # data wrangling 
 ################################################################################
-# select which method of epigenetic age calculation to use
+# specify which method of epigenetic age calculation to use
 use_method <- 'Methscore CpG'
 
 # merge epigenetic age and asthma classifications
