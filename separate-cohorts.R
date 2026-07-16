@@ -18,35 +18,57 @@ asthma <- read.dta13('data-raw/de_la_Rosa_06.dta',
                      generate.factors = TRUE)
 
 # data wrangling ---------------------------------------------------------------
-clean <- asthma %>%
+# identify participants with data collected for at least one time point
+with_data <- asthma %>%
   # focus on asthma variables 
   select(newid, contains('asth_')) %>%
   # remove rows that have NA in all columns other than newid column
   filter(!if_all(-newid, is.na))
 
-# separate time points into two groups
-# 5Y-7Y
-five_7 <- clean %>%
-  # keep vars only corresponding to time points of interest
-  select(newid, contains(c('_5Y', '_7Y'))) %>%
+# identify participants that have no data over 5Y-18Y
+no_data <- asthma %>%
+  # focus on asthma variables 
+  select(newid, contains('asth_')) %>%
   # remove rows that have NA in all columns other than newid column
-  filter(!if_all(-newid, is.na))
+  filter(if_all(-newid, is.na)) %>%
+  # create vector of participant IDs
+  pull(newid)
 
-# 9Y-18Y
-nine_18 <- clean %>%
-  # keep vars only corresponding to time points of interest
-  select(newid, contains(c('_9Y', '_10Y', '_12Y', '_14Y', '_16Y', '_18Y'))) %>%
+# participants with data from 9Y-18Y ONLY (missing data from 5Y & 7Y)
+nine_18_only <- with_data %>%
   # remove rows that have NA in all columns other than newid column
-  filter(!if_all(-newid, is.na))
+  filter(if_all(contains(c('_5Y', '7Y')), is.na)) %>%
+  # create vector of participant IDs
+  pull(newid)
+# I believe these are CHAM2, since data collection started at 9Y
 
-# which IDs are in 9Y-18Y but missing from 5Y/7Y
-# I assume these are CHAM2 participants
-cham2 <- setdiff(nine_18$newid, five_7$newid)
+# identify participants that were lost to follow up before 9Y
+five_7_only <- with_data %>%
+  # filter for IDs in 5Y-7Y but missing entirely from 9Y-18Y
+  filter(if_all(
+    .cols = contains(c('_9Y','_10Y','_12Y','_14Y','_16Y','_18Y')),
+    .fns = is.na))%>%
+  # create vector of participant IDs
+  pull(newid)
+# These are definitely part of CHAM1 since CHAM2 didn't start until 9Y
 
-# the remaining participants with asthma data collected at at least 1 time point
-# are assumed to be CHAM1
-cham1 <- clean %>%
-  filter(!newid %in% cham2)
-# don't know how I feel about this... think this through more tomorrow
+# participants that have data that spans CHAM1 and CHAM2 time points
+spans_all <- with_data %>%
+  # at least 1 data point at 5Y or 7Y
+  filter(!if_all(contains(c('5Y', '7Y')), is.na) & 
+           # AND at least 1 data point between 9Y-18Y
+           !if_all(contains(c('_9Y','_10Y','_12Y','_14Y','_16Y','_18Y')), is.na)
+         ) %>%
+  # create vector of participant IDs
+  pull(newid)
+# I believe these are CHAM1 participants since they span both cohort timelines
 
-  
+# create new data frame with cohorts assigned
+cohorts <- data.frame(newid = asthma$newid) %>%
+  mutate(cohort = case_when(newid %in% spans_all ~ 'CHAM1',
+                            newid %in% five_7_only ~ 'CHAM1',
+                            newid %in% nine_18_only ~ 'CHAM2',
+                            newid %in% no_data ~ 'no data'))
+
+# save (unconfirmed) cohort info as csv ----------------------------------------
+write.csv(cohorts, 'data-processed/cohorts-unconfirmed.csv', row.names = FALSE)
