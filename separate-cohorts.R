@@ -1,6 +1,9 @@
 # Author: Selene Banuelos
 # Date: 7/15/2026
-# Description: Try to separate out CHAM1 from CHAM2 participants
+# Description: NO LONGER NEEDED. Was provided confirmed cohort membership 
+# information. Keeping this script as an archive. 
+
+# Original description: Try to separate out CHAM1 from CHAM2 participants
 
 # Notes: I know that CHAM2 recruitment started at time point 9Y. Following this, 
 # I can assume that there is a group of participant IDs is only present between 
