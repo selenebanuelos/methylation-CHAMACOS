@@ -1,20 +1,19 @@
-### Author: Selene Banuelos
-### Date: 4/28/2026
-### Description: Merge asthma classes and DNAm age estimates
+# Author: Selene Banuelos
+# Date: 4/28/2026
+# Description: Merge asthma classes and DNAm age estimates
 
 # setup
 library(readstata13) # work with STATA DTA files
 library(dplyr)
 
-# import data
-################################################################################
+# import data ------------------------------------------------------------------
 # participant information
-demo <- read.dta13('data-raw/de_la_Rosa_06.dta',
+demo <- read.dta13('data-raw/de_la_Rosa_07.dta',
                    nonint.factors = TRUE,
                    generate.factors = TRUE)
 
 # estimated epigenetic age from various clocks
-dnam_age <- read.dta13("data-raw/de_la_Rosa_epigenetic_06.dta", 
+dnam_age <- read.dta13("data-raw/de_la_Rosa_epigenetic_07.dta", 
                  nonint.factors=TRUE, 
                  generate.factors=TRUE)
 
