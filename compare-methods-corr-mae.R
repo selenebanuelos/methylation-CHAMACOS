@@ -14,13 +14,14 @@ library(gtsummary)
 
 # import data ------------------------------------------------------------------
 # estimated epigenetic age using various methods
-dnam_age <- read.dta13("data-raw/de_la_Rosa_epigenetic_06.dta", 
+dnam_age <- read.dta13("data-raw/de_la_Rosa_epigenetic_07.dta", 
                        nonint.factors=TRUE, 
                        generate.factors=TRUE)
 
 # data wrangling ---------------------------------------------------------------
 # create vector of methods we want to compare
-methods <- c('methylCIPHER', 
+methods <- c('Clock Foundation',
+             'methylCIPHER', 
              'Morgan Levine PC', 
              'DunedinPACE',
              'Methscore CpG', 
@@ -33,13 +34,14 @@ clocks <- c('Horvath',
             'PhenoAge',
             'GrimAge',
             'DNAmTL',
+            'IEAA',
             'DunedinPACE')
 
 # create vector of timepoints of interest
 timepoints <- c('Age 9', 'Age 12', 'Age 14', 'Age 18')
 
-# reformat data frame
-reformat <- dnam_age %>%
+# filter for desired DNAm age data and make data long
+long_dnam <- dnam_age %>%
   # keep estimates from methods of interest
   filter(Method %in% methods,
          # keep estimates from tiempoints of interest
@@ -55,7 +57,8 @@ reformat <- dnam_age %>%
   filter(!is.na(dnam_age))
 
 # correlation and MAE ----------------------------------------------------------
-# wrapper function to use stats::cor.test() within summarise
+# wrapper function to use stats::cor.test() within summarise to calculate
+# cross-sectional correlation
 get_cross_corr <- function(x, # numeric vector
                        y # numeric vector
                        ){
@@ -74,7 +77,8 @@ get_cross_corr <- function(x, # numeric vector
   
 }
 
-# wrapper function to use rmcorr() within dplyr::do()
+# wrapper function to use rmcorr() within dplyr::do() to calculate repeat
+# measures/longitudinal correlation
 get_long_corr <- function(df) {
   
   # repeat measures correlation 
@@ -92,7 +96,7 @@ get_long_corr <- function(df) {
 }
   
 # calculate r & MAE within each time point, method, and clock combination
-crosssectional <- reformat %>%
+crosssectional <- long_dnam %>%
   # calculate correlation coefficient within each combination
   group_by(Timepoint, Method, clock) %>%
   # these are cross-sectional correlation coefficients and MAE
@@ -104,7 +108,9 @@ crosssectional <- reformat %>%
   ungroup(.)
 
 # calculate repeat measure correlations
-long_corr <- reformat %>%
+long_corr <- long_dnam %>%
+  # subject ID needs to be a factor
+  mutate(newid = as.factor(newid)) %>%
   # create groups for each method/clock combination
   group_by(Method, clock) %>%
   # calculate repeat measures correlations for each group with rmcorr()
@@ -114,7 +120,7 @@ long_corr <- reformat %>%
   ungroup(.)
 
 # calculate longitudinal MAE and combine with rm correlations
-longitudinal <- reformat %>%
+longitudinal <- long_dnam %>%
   group_by(Method, clock) %>%
   # calculate longitudinal mean absolute error
   summarise(mae = round(mdae(actual = Chrono_Age, predicted = dnam_age), 
@@ -145,7 +151,8 @@ cross_table <- crosssectional %>%
                                            'Age 14',
                                            'Age 18')))) %>%
   # control order of columns
-  select(Timepoint, clock, contains(c('methylCIPHER', 
+  select(Timepoint, clock, contains(c('Clock Foundation',
+                                      'methylCIPHER', 
                                       'Methscore CpG', 
                                       'Methscore PC', 
                                       'Morgan Levine PC',
@@ -165,9 +172,10 @@ long_table <- longitudinal %>%
   slice(order(factor(clock, levels = clocks))) %>%
   ungroup(.) %>%
   # control order of columns
-  select(clock, contains(c('methylCIPHER',
-                           'Methscore CpG',
-                           'Methscore PC',
+  select(clock, contains(c('Clock Foundation',
+                           'methylCIPHER', 
+                           'Methscore CpG', 
+                           'Methscore PC', 
                            'Morgan Levine PC',
                            'DunedinPACE')))
   
