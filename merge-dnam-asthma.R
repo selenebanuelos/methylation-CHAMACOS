@@ -1,6 +1,7 @@
 # Author: Selene Banuelos
 # Date: 4/28/2026
-# Description: Merge asthma classes and DNAm age estimates
+# Description: Merge asthma classes and DNAm age estimates - DO I NEED THIS TO
+# BE SEPARATE FROM ANALYSIS???
 
 # setup
 library(readstata13) # work with STATA DTA files
@@ -18,17 +19,17 @@ dnam_age <- read.dta13("data-raw/de_la_Rosa_epigenetic_07.dta",
                  generate.factors=TRUE)
 
 # asthma classification from latent class variable analysis
-asthma <- read.csv('data-raw/chamacos.asthma.lca3.csv', sep = ';') %>% select(-X)
+asthma <- read.csv('data-raw/class-labels-k3.csv')
 
 # data wrangling 
 ################################################################################
 # specify which method of epigenetic age calculation to use
-use_method <- 'Methscore CpG'
+#use_method <- 'Methscore CpG'
 
 # merge epigenetic age and asthma classifications
 dnam_asthma <- dnam_age %>%
   # keep DNAm age generated with method of interest
-  filter(Method == use_method) %>%
+  #filter(Method == use_method) %>%
   # change variable type for merging
   mutate(newid = as.integer(newid)) %>%
   # merge asthma class to estimated epi ages
