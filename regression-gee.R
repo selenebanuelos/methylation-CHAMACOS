@@ -4,7 +4,7 @@
 # to estimate unadjusted population average DNAm age deviation between asthma
 # trajectory classes
 
-# DNAm age ~ chrono age + asthma traj class + chrono age*asthma traj class
+# DNAm age ~ chrono age + asthma traj class
 
 # setup
 library(readstata13)
@@ -34,25 +34,28 @@ non_DNAm <- c('newid', 'Chrono_Age', 'Timepoint', 'Array', 'Method')
 
 # make DNAm age data longer for easier data wrangling
 dnam_long <- dnam_age %>%
+  # keep only timepoints of interest 
+  filter(Timepoint %in% timepoints) %>%
   # pivot all DNAm age columns into longer format
   pivot_longer(cols = -any_of(non_DNAm), 
                names_to = 'clock',
-               values_to = 'DNAm_age')
+               values_to = 'DNAm_age') 
 
 # check chrono age of participants ---------------------------------------------
-# looks like some participants might have 2 chrono ages for same timepoint?
+# identify participants that have more than one DNAm estimate per timepoint
 ages_two <- dnam_age %>%
   select(newid, Chrono_Age, Timepoint, Array) %>%
   # keep only distinct rows
   distinct(.) %>%
-  # identify participants that have more than 1 row per timepoint
+  # identify participants that have more than 1 measure per timepoint
   group_by(newid, Timepoint) %>%
-  summarise(age_count = n_distinct(Chrono_Age)) %>%
-  filter(age_count >1)
+  summarise(measure_count = n_distinct(Chrono_Age)) %>%
+  filter(measure_count >1) %>%
+  # remove count of measures, leaving participant ID and timepoint
+  select(-measure_count)
 
-# get dataframe of participants that have 2 chrono ages per timepoint
+# join all DNAm age data back to participants with more than 1 measure per visit
 df <- ages_two %>%
-  select(-age_count) %>%
   # join original DNAm age data to list of participants with >1 chrono age
   left_join(., dnam_age, by = c('newid', 'Timepoint'))
   
@@ -99,19 +102,79 @@ select_dnam <- rbind(clock_found, methscore_cpg, methscore_pc) %>%
               values_from = DNAm_age)
 
 # START HERE -------------------------------------------------------------------
+# timepoints of interest
+timepoints <- c('Age 9', 'Age 12', 'Age 14', 'Age 18')
+
+# vector of non-DNAm age variable names
+non_DNAm <- c('newid', 'Chrono_Age', 'Timepoint', 'Array', 'Method')
+
+# figure out how to select DNAm age estimate to use based on following hierarchy
+# horvath CpG: 450, EPICv2, EPICv1
+# all other CpG clocks & all PC clocks: 450, EPICv1, EPICv2
+hierarchy_else <- dnam_age %>%
+  # make data longer for easier data manipulation
+  pivot_longer(cols = -any_of(non_DNAm),
+               names_to = 'clock',
+               values_to = 'DNAm_age') %>%
+  # specify if PC-based or CpG-based estimates
+  mutate(type = case_when(
+    Method == 'Morgan Levine PC' | Method == 'Methscore PC' ~ 'PC',
+    .default = 'CpG')) %>%
+  # specify heirarchy for everything other than CpG-based horvath estimates
+  filter(!(type == 'CpG' & clock == 'Horvath')) %>%
+  # create variable that indicates the use priority of each clock/array combo
+  mutate(priority = case_when(
+    # for all clocks, prioritize using data from 450K array first
+    Array == '450K' ~ 1,
+    Array == 'EPICv1' ~ 2,
+    Array == 'EPICv2' ~ 3))
+
+hierarchy_horvath <- dnam_age %>%
+  # make data longer for easier data manipulation
+  pivot_longer(cols = -any_of(non_DNAm),
+               names_to = 'clock',
+               values_to = 'DNAm_age') %>%
+  # specify if PC-based or CpG-based estimates
+  mutate(type = case_when(
+    Method == 'Morgan Levine PC' | Method == 'Methscore PC' ~ 'PC',
+    .default = 'CpG')) %>%
+  # specify heirarchy for everything other than CpG-based horvath estimates
+  filter(type == 'CpG' & clock == 'Horvath') %>%
+  # create variable that indicates the use priority of each clock/array combo
+  mutate(priority = case_when(
+    # for all clocks, prioritize using data from 450K array first
+    Array == '450K' ~ 1,
+    Array == 'EPICv2' ~ 2,
+    Array == 'EPICv1' ~ 3))
+
+hierarchy_all <- rbind(hierarchy_else, hierarchy_horvath) %>%
+  # keep highest priority DNAm age available for each participant
+  group_by(newid, Timepoint, Method, clock) %>%
+  slice_min(priority) %>%
+  ungroup()
+# i think i got it here but need to double check that everyone's included
+  
+View(hierarchy_all %>% filter(newid == '1003'))
+
+
+
+
 # merge epigenetic age and asthma classifications
 methscore_cpg <- dnam_age %>%
-  # keep DNAm age generated with method of interest
+  # keep only timepoints of interest (9Y-18Y)
+  filter(Timepoint %in% timepoints) %>%
   filter(Method == 'Methscore CpG') %>%
+  # keep only 450K-based estimates generated using Methscore
+  filter(Array == '450K') %>%
   # change variable type for merging
   mutate(newid = as.integer(newid)) %>%
   # merge asthma class to estimated epi ages
-  left_join(., asthma, by = 'newid') %>%
-  # keep only timepoints of interest (9Y-18Y)
-  filter(Timepoint %in% (c('Age 9', 'Age 12', 'Age 14', 'Age 18'))) %>%
-  # remove anyone missing asthma trajectory classification
-  filter(!is.na(LCA)) 
-# need to double check that everyone only has 1 measure per time
+  #left_join(., asthma, by = 'newid') %>%
+
+# remove anyone missing asthma trajectory classification
+#filter(!is.na(LCA))
+
+
 
 # factor variables
 methscore_cpg$LCA <- factor(methscore_cpg$LCA,
